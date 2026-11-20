@@ -296,7 +296,9 @@
   const STAR_COLORS = ["#B2B8FF", "#B3FFEF", "#CAFFBD", "#F4FFC6", "#FFF5D7", "#FFE4F4", "#F9FFFC"];
   const STAR_DENSITY = 1 / 1400;  // 숫자가 클수록 별이 많아짐 (1/700이면 2배)
   const BIG_STAR_RATIO = 0.35;    // 2px 별의 비율 (나머지는 1px)
-  const TWINKLE_RATIO = 0.55;     // 반짝이는 별의 비율 (0이면 반짝임 끄기)
+  const TWINKLE_RATIO = 0.45;     // 반짝이는 별의 비율 (0이면 반짝임 끄기)
+  const METEOR_ON = true;         // 별똥별 켜기/끄기
+  const METEOR_EVERY = [6, 20];   // 별똥별 간격(초): 6~15초 사이 랜덤
   /* ================ */
 
   const $ = (id) => document.getElementById(id);
@@ -731,17 +733,68 @@
       skyCtx.fillRect(s.x, s.y, s.size, s.size);
     }
     skyCtx.globalAlpha = 1;
+    drawMeteors(t);
+  }
+
+  /* 별똥별 */
+  let meteors = [], nextMeteor = 0;
+  const rand = (a, b) => a + Math.random() * (b - a);
+
+  function spawnMeteor(t) {
+    const angle = Math.PI * rand(0.68, 0.82);          // 오른쪽 위 → 왼쪽 아래
+    meteors.push({
+      x: rand(0.3, 1.1) * skyW,
+      y: rand(-0.05, 0.35) * window.innerHeight,
+      dx: Math.cos(angle), dy: Math.sin(angle),
+      speed: rand(650, 1000),                         // px/초
+      len: rand(90, 170),                             // 꼬리 길이
+      life: rand(0.7, 1.1),                           // 보이는 시간(초)
+      born: t,
+      color: STAR_COLORS[Math.floor(Math.random() * STAR_COLORS.length)],
+    });
+  }
+
+  function drawMeteors(t) {
+    meteors = meteors.filter((m) => t - m.born < m.life);
+    for (const m of meteors) {
+      const age = t - m.born;
+      const hx = m.x + m.dx * m.speed * age;
+      const hy = m.y + m.dy * m.speed * age;
+      const tail = m.len * Math.min(1, age / 0.18);   // 꼬리가 점점 길어짐
+      const tx = hx - m.dx * tail, ty = hy - m.dy * tail;
+      const fade = age > m.life * 0.55 ? 1 - (age - m.life * 0.55) / (m.life * 0.45) : 1;
+      const g = skyCtx.createLinearGradient(hx, hy, tx, ty);
+      g.addColorStop(0, m.color);
+      g.addColorStop(1, m.color + "00");
+      skyCtx.globalAlpha = Math.max(0, fade);
+      skyCtx.strokeStyle = g;
+      skyCtx.lineWidth = 1.6;
+      skyCtx.lineCap = "round";
+      skyCtx.beginPath();
+      skyCtx.moveTo(hx, hy);
+      skyCtx.lineTo(tx, ty);
+      skyCtx.stroke();
+      skyCtx.fillStyle = "#FFFFFF";
+      skyCtx.fillRect(hx - 1, hy - 1, 2, 2);          // 반짝이는 머리
+    }
+    skyCtx.globalAlpha = 1;
   }
 
   let lastPaint = 0;
   function animateSky(now) {
-    if (now - lastPaint > 50) { paintSky(now); lastPaint = now; }   // 초당 20번이면 충분 (배터리 절약)
+    const t = now / 1000;
+    if (METEOR_ON) {
+      if (!nextMeteor) nextMeteor = t + rand(2, 5);   // 첫 별똥별은 금방
+      if (t >= nextMeteor) { spawnMeteor(t); nextMeteor = t + rand(METEOR_EVERY[0], METEOR_EVERY[1]); }
+    }
+    // 별똥별이 지나갈 땐 부드럽게(매 프레임), 평소엔 초당 20번 (배터리 절약)
+    if (meteors.length || now - lastPaint > 50) { paintSky(now); lastPaint = now; }
     requestAnimationFrame(animateSky);
   }
 
   makeSky();
   window.addEventListener("resize", makeSky);
-  if (!reduceMotion && TWINKLE_RATIO > 0) requestAnimationFrame(animateSky);
+  if (!reduceMotion && (TWINKLE_RATIO > 0 || METEOR_ON)) requestAnimationFrame(animateSky);
 
   /* ---------- 시작 ---------- */
   if (/[?#&]admin\b/.test(location.search + location.hash) && !adminKey) {
