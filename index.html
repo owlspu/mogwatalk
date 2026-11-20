@@ -8,11 +8,11 @@
 <link rel="icon" href="mogwa.png">
 <style>
   :root {
-    --bg: #262624;          /* 클로드 다크모드 배경 */
-    --bg-raised: #30302E;
-    --line: #3A3A37;
+    --bg: #151C30;          /* 밤하늘 배경 */
+    --bg-raised: #212A45;
+    --line: #333D60;
     --text: #F5F4EE;
-    --muted: #9C9A92;
+    --muted: #9AA3C2;
     --me-bg: #000000;       /* 모과 말풍선 */
     --me-text: #FFFFFF;
     --anon-bg: #C0E66D;     /* 익명 말풍선 */
@@ -28,11 +28,12 @@
     line-height: 1.55;
   }
   [hidden] { display: none !important; }
+  #sky { position: fixed; inset: 0; width: 100vw; height: 100lvh; z-index: -1; pointer-events: none; }
 
   /* 상단 바 */
   header {
     position: sticky; top: 0; z-index: 5;
-    background: rgba(38, 38, 36, 0.92);
+    background: rgba(21, 28, 48, 0.85);
     backdrop-filter: blur(8px);
     border-bottom: 1px solid var(--line);
   }
@@ -131,7 +132,7 @@
   /* 입력창 */
   .composer-wrap {
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 5;
-    background: linear-gradient(to top, var(--bg) 80%, rgba(38,38,36,0));
+    background: linear-gradient(to top, rgba(21,28,48,0.95) 60%, rgba(21,28,48,0));
     padding: 18px 12px calc(10px + env(safe-area-inset-bottom));
   }
   .composer {
@@ -221,6 +222,7 @@
 </style>
 </head>
 <body>
+<canvas id="sky" aria-hidden="true"></canvas>
 
 <header>
   <div class="header-inner">
@@ -263,7 +265,7 @@
     </div>
     <div class="meta-row">
       <label class="secret-check" id="secretWrap">
-        <input type="checkbox" id="secret"> <span id="secretLabel">🔒 모과에게만 보이기 / 비밀글 답장은 같은 기기, 같은 브라우저에서만 보여요</span>
+        <input type="checkbox" id="secret"> <span id="secretLabel">🔒 모과에게만 보이기</span>
       </label>
       <span class="counter" id="counter"></span>
     </div>
@@ -290,6 +292,11 @@
   const OWNER_NAME = "모과";
   const MAX_LEN = 1000;          // 익명 질문 최대 글자수
   const REFRESH_SEC = 30;        // 새 메시지 자동 확인 간격(초)
+  // 밤하늘 별: 색은 원하는 만큼 추가/삭제 가능, 배경색은 맨 위 CSS의 --bg
+  const STAR_COLORS = ["#B2B8FF", "#B3FFEF", "#CAFFBD", "#F4FFC6", "#FFF5D7", "#FFE4F4", "#F9FFFC"];
+  const STAR_DENSITY = 1 / 1400;  // 숫자가 클수록 별이 많아짐 (1/700이면 2배)
+  const BIG_STAR_RATIO = 0.35;    // 2px 별의 비율 (나머지는 1px)
+  const TWINKLE_RATIO = 0.55;     // 반짝이는 별의 비율 (0이면 반짝임 끄기)
   /* ================ */
 
   const $ = (id) => document.getElementById(id);
@@ -679,6 +686,62 @@
     }
     updateInput();
   });
+
+  /* ---------- 밤하늘 ---------- */
+  let skyWidth = 0, stars = [], skyCtx = null, skyW = 0, skyH = 0;
+  const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  function makeSky() {
+    const c = $("sky");
+    const w = window.innerWidth;
+    const h = Math.max(window.innerHeight, screen.height || 0);
+    if (w === skyWidth) return;          // 모바일 주소창 움직일 때 별이 다시 섞이지 않게
+    skyWidth = w; skyW = w; skyH = h;
+    const dpr = window.devicePixelRatio || 1;
+    c.width = Math.round(w * dpr);
+    c.height = Math.round(h * dpr);
+    skyCtx = c.getContext("2d");
+    skyCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    stars = [];
+    const count = Math.round(w * h * STAR_DENSITY);
+    for (let i = 0; i < count; i++) {
+      stars.push({
+        x: Math.floor(Math.random() * w),
+        y: Math.floor(Math.random() * h),
+        size: Math.random() < BIG_STAR_RATIO ? 2 : 1,
+        color: STAR_COLORS[Math.floor(Math.random() * STAR_COLORS.length)],
+        alpha: 0.45 + Math.random() * 0.55,
+        twinkle: !reduceMotion && Math.random() < TWINKLE_RATIO,
+        speed: 0.6 + Math.random() * 1.6,          // 반짝이는 속도 (별마다 다름)
+        phase: Math.random() * Math.PI * 2,
+      });
+    }
+    paintSky(performance.now());
+  }
+
+  function paintSky(now) {
+    if (!skyCtx) return;
+    const t = now / 1000;
+    skyCtx.clearRect(0, 0, skyW, skyH);
+    for (const s of stars) {
+      let a = s.alpha;
+      if (s.twinkle) a *= 0.15 + 0.85 * (0.5 + 0.5 * Math.sin(t * s.speed + s.phase));
+      skyCtx.globalAlpha = a;
+      skyCtx.fillStyle = s.color;
+      skyCtx.fillRect(s.x, s.y, s.size, s.size);
+    }
+    skyCtx.globalAlpha = 1;
+  }
+
+  let lastPaint = 0;
+  function animateSky(now) {
+    if (now - lastPaint > 50) { paintSky(now); lastPaint = now; }   // 초당 20번이면 충분 (배터리 절약)
+    requestAnimationFrame(animateSky);
+  }
+
+  makeSky();
+  window.addEventListener("resize", makeSky);
+  if (!reduceMotion && TWINKLE_RATIO > 0) requestAnimationFrame(animateSky);
 
   /* ---------- 시작 ---------- */
   if (/[?#&]admin\b/.test(location.search + location.hash) && !adminKey) {
