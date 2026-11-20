@@ -80,7 +80,12 @@
   }
   .row { display: flex; flex-direction: column; margin-bottom: 12px; }
   .row.anon { align-items: flex-end; }   /* 익명 = 오른쪽 */
-  .row.me { align-items: flex-start; }   /* 모과 = 왼쪽 */
+  .row.me { flex-direction: row; align-items: flex-start; gap: 8px; }   /* 모과 = 왼쪽 */
+  .me-avatar {
+    width: 48px; height: 48px; border-radius: 50%;
+    object-fit: cover; flex-shrink: 0; background: var(--bg-raised);
+  }
+  .me-body { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; padding-top: 4px; }
   .name { font-size: 12px; color: var(--muted); margin: 0 6px 4px; }
   .line { display: flex; align-items: flex-end; gap: 6px; max-width: 82%; }
   .anon .line { flex-direction: row-reverse; }
@@ -384,8 +389,11 @@
   }
   function meRow(it) {
     return `<div class="row me">
-      <div class="name">${esc(OWNER_NAME)}</div>
-      <div class="line"><div class="bubble">${linkify(it.a)}</div></div>
+      <img class="me-avatar" src="mogwa2.png" alt="" onerror="this.style.visibility='hidden'">
+      <div class="me-body">
+        <div class="name">${esc(OWNER_NAME)}</div>
+        <div class="line"><div class="bubble">${linkify(it.a)}</div></div>
+      </div>
     </div>`;
   }
 
@@ -450,21 +458,32 @@
   }
 
   async function login(pw) {
-    adminKey = pw;
-    try {
-      if (!DEMO) {
+    pw = pw.trim();
+    let err = "";
+    if (!DEMO) {
+      try {
         const d = await post({ action: "list", key: pw });
-        if (!d.ok) throw new Error(d.error);
+        if (!d.ok) err = d.error || "unknown";
+      } catch (e) {
+        err = "network";
       }
-      store.set("mogwa_admin", pw);
-      $("loginModal").hidden = true;
-      applyMode();
-      toast("관리자 모드로 들어왔어요");
-      refresh(true);
-    } catch (e) {
-      adminKey = "";
-      toast("비밀번호가 맞지 않아요");
     }
+    if (err) {
+      const msg = {
+        auth: "비밀번호가 맞지 않아요 (" + pw.length + "글자 입력됨)",
+        network: "서버 연결 실패 (네트워크 오류)",
+        server: "서버 오류 (server)",
+        unknown: "서버가 로그인을 몰라요 (예전 버전 배포 중)",
+      }[err] || "오류: " + err;
+      toast(msg, 4000);
+      return;
+    }
+    adminKey = pw;
+    store.set("mogwa_admin", pw);
+    $("loginModal").hidden = true;
+    applyMode();
+    toast("관리자 모드로 들어왔어요");
+    refresh(true);
   }
 
   function selectReply(id) {
