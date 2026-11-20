@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>노푸에게 말 걸기</title>
+<meta name="description" content="익명으로 노푸에게 무엇이든 물어보세요">
+<style>
+  :root {
+    --bg: #262624;          /* 클로드 다크모드 배경 */
+    --bg-raised: #30302E;
+    --line: #3A3A37;
+    --text: #F5F4EE;
+    --muted: #9C9A92;
+    --me-bg: #000000;       /* 내 채팅 */
+    --me-text: #FFFFFF;
+    --anon-bg: #C0E66D;     /* 익명 채팅 */
+    --anon-text: #000000;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
+    font-size: 15px;
+    line-height: 1.55;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* 상단 바 */
+  header {
+    position: sticky; top: 0; z-index: 5;
+    background: rgba(38, 38, 36, 0.92);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--line);
+  }
+  .header-inner {
+    max-width: 640px; margin: 0 auto;
+    padding: 14px 18px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .avatar {
+    width: 38px; height: 38px; border-radius: 50%;
+    background: var(--me-bg); color: var(--me-text);
+    display: grid; place-items: center;
+    font-weight: 700; font-size: 15px; flex-shrink: 0;
+  }
+  .title { font-weight: 700; font-size: 16px; }
+  .subtitle { color: var(--muted); font-size: 12.5px; }
+
+  /* 대화 영역 */
+  main {
+    flex: 1;
+    width: 100%; max-width: 640px; margin: 0 auto;
+    padding: 18px 14px 150px;
+  }
+  .notice {
+    text-align: center; color: var(--muted); font-size: 13px;
+    margin: 8px auto 22px; max-width: 360px;
+  }
+  .date-divider {
+    display: flex; align-items: center; gap: 10px;
+    color: var(--muted); font-size: 12px;
+    margin: 22px 0 12px;
+  }
+  .date-divider::before, .date-divider::after {
+    content: ""; flex: 1; height: 1px; background: var(--line);
+  }
+  .row { display: flex; flex-direction: column; margin-bottom: 6px; }
+  .row.anon { align-items: flex-start; }
+  .row.me { align-items: flex-end; margin-bottom: 14px; }
+  .name { font-size: 12px; color: var(--muted); margin: 0 6px 4px; }
+  .bubble {
+    max-width: 82%;
+    padding: 10px 14px;
+    border-radius: 18px;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .anon .bubble {
+    background: var(--anon-bg); color: var(--anon-text);
+    border-top-left-radius: 6px;
+  }
+  .me .bubble {
+    background: var(--me-bg); color: var(--me-text);
+    border-top-right-radius: 6px;
+  }
+  .bubble a { color: inherit; }
+  .link-chip {
+    display: inline-block; margin-top: 8px;
+    padding: 4px 10px; border-radius: 999px;
+    background: rgba(0,0,0,0.12);
+    font-size: 12.5px; text-decoration: none;
+    max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    vertical-align: bottom;
+  }
+  .pending {
+    font-size: 12px; color: var(--muted); margin: 4px 6px 14px;
+  }
+  .state { text-align: center; color: var(--muted); padding: 40px 0; font-size: 14px; }
+
+  /* 입력창 */
+  .composer-wrap {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 5;
+    background: linear-gradient(to top, var(--bg) 75%, rgba(38,38,36,0));
+    padding: 18px 12px calc(12px + env(safe-area-inset-bottom));
+  }
+  .composer {
+    max-width: 640px; margin: 0 auto;
+    background: var(--bg-raised);
+    border: 1px solid var(--line);
+    border-radius: 22px;
+    padding: 8px 8px 8px 14px;
+  }
+  .url-row { display: none; padding: 4px 0 8px; border-bottom: 1px solid var(--line); margin-bottom: 6px; }
+  .url-row.open { display: block; }
+  .url-row input {
+    width: 100%; background: transparent; border: 0; outline: 0;
+    color: var(--text); font: inherit; font-size: 14px;
+  }
+  .input-row { display: flex; align-items: flex-end; gap: 6px; }
+  textarea {
+    flex: 1; resize: none; border: 0; outline: 0;
+    background: transparent; color: var(--text);
+    font: inherit; max-height: 140px; padding: 7px 0;
+  }
+  textarea::placeholder, .url-row input::placeholder { color: var(--muted); }
+  .icon-btn, .send-btn {
+    width: 36px; height: 36px; border-radius: 50%;
+    border: 0; cursor: pointer; flex-shrink: 0;
+    display: grid; place-items: center; font-size: 16px;
+  }
+  .icon-btn { background: transparent; color: var(--muted); }
+  .icon-btn.active { color: var(--anon-bg); }
+  .send-btn { background: var(--anon-bg); color: var(--anon-text); font-weight: 700; }
+  .send-btn:disabled { opacity: 0.4; cursor: default; }
+  .counter { font-size: 11px; color: var(--muted); text-align: right; padding: 2px 6px 0 0; }
+  .counter.over { color: #F28B82; }
+  .hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
+
+  .toast {
+    position: fixed; left: 50%; bottom: 120px; transform: translateX(-50%);
+    background: #000; color: #fff; font-size: 13px;
+    padding: 8px 14px; border-radius: 999px;
+    opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 10;
+  }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="avatar" id="avatar">노</div>
+    <div>
+      <div class="title" id="title">노푸에게 말 걸기</div>
+      <div class="subtitle">익명으로 보내져요 · 답변이 달린 질문만 여기에 올라와요</div>
+    </div>
+  </div>
+</header>
+
+<main id="chat">
+  <p class="notice">궁금한 거, 하고 싶은 말, 닮은 동물 사진 링크까지 편하게 보내줘요 🙂</p>
+  <div id="list"><div class="state">불러오는 중…</div></div>
+  <div id="sent"></div>
+</main>
+
+<div class="composer-wrap">
+  <form class="composer" id="form" autocomplete="off">
+    <div class="url-row" id="urlRow">
+      <input type="text" inputmode="url" id="url" placeholder="링크 붙여넣기 (선택)" maxlength="500">
+    </div>
+    <input class="hp" type="text" id="website" tabindex="-1" aria-hidden="true">
+    <div class="input-row">
+      <button type="button" class="icon-btn" id="linkBtn" title="링크 첨부">🔗</button>
+      <textarea id="q" rows="1" placeholder="익명으로 메시지 보내기" maxlength="1000"></textarea>
+      <button type="submit" class="send-btn" id="sendBtn" disabled aria-label="보내기">↑</button>
+    </div>
+    <div class="counter" id="counter"></div>
+  </form>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  /* ===== 설정 ===== */
+  // 구글 Apps Script를 "웹 앱"으로 배포한 뒤 받은 주소를 여기에 붙여넣기
+  const API_URL = "PASTE_YOUR_APPS_SCRIPT_URL_HERE";
+  const OWNER_NAME = "노푸";
+  const MAX_LEN = 1000;
+  /* ================ */
+
+  const $ = (id) => document.getElementById(id);
+  const DEMO = !/^https:\/\/script\.google\.com\//.test(API_URL);
+
+  document.title = OWNER_NAME + "에게 말 걸기";
+  $("title").textContent = OWNER_NAME + "에게 말 걸기";
+  $("avatar").textContent = OWNER_NAME.charAt(0);
+
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+  function linkify(s) {
+    return esc(s).replace(/https?:\/\/[^\s<]+/g, (u) => `<a href="${u}" target="_blank" rel="noopener noreferrer">${u}</a>`);
+  }
+  function safeUrl(u) {
+    return /^https?:\/\//i.test(u || "") ? u : "";
+  }
+  function anonBubble(nick, q, url) {
+    const link = safeUrl(url);
+    const chip = link
+      ? `\n<a class="link-chip" href="${esc(link)}" target="_blank" rel="noopener noreferrer">🔗 ${esc(link.replace(/^https?:\/\//, ""))}</a>`
+      : "";
+    return `<div class="row anon"><div class="name">${esc(nick)}</div><div class="bubble">${esc(q)}${chip}</div></div>`;
+  }
+  function meBubble(a) {
+    return `<div class="row me"><div class="name">${esc(OWNER_NAME)}</div><div class="bubble">${linkify(a)}</div></div>`;
+  }
+
+  function render(items) {
+    if (!items.length) {
+      $("list").innerHTML = `<div class="state">아직 공개된 답변이 없어요. 첫 질문을 보내보세요!</div>`;
+      return;
+    }
+    let html = "", lastDate = "";
+    items.forEach((it) => {
+      if (it.date !== lastDate) {
+        html += `<div class="date-divider">${esc(it.date)}</div>`;
+        lastDate = it.date;
+      }
+      html += anonBubble(it.nick, it.q, it.url) + meBubble(it.a);
+    });
+    $("list").innerHTML = html;
+    window.scrollTo(0, document.body.scrollHeight);
+  }
+
+  async function load() {
+    if (DEMO) {
+      render([
+        { date: "2026.11.18", nick: "졸린 수달", q: "썰 속 주인공 진짜 닮은 동물 찾았어요", url: "https://example.com/otter.jpg", a: "ㅋㅋㅋㅋ 표정까지 똑같다\n저장해둠" },
+        { date: "2026.11.20", nick: "조용한 고양이", q: "썰 아이디어는 주로 어디서 얻어요?", url: "", a: "샤워할 때랑 잠들기 직전이 제일 많이 떠올라.\n그래서 메모장이 항상 엉망이야 ㅎㅎ" },
+      ]);
+      return;
+    }
+    try {
+      const res = await fetch(API_URL);
+      const data = await res.json();
+      render(data.items || []);
+    } catch (e) {
+      $("list").innerHTML = `<div class="state">답변을 불러오지 못했어요. 잠시 후 새로고침 해주세요.</div>`;
+    }
+  }
+
+  /* 입력창 동작 */
+  const q = $("q"), sendBtn = $("sendBtn");
+  function updateInput() {
+    q.style.height = "auto";
+    q.style.height = Math.min(q.scrollHeight, 140) + "px";
+    const len = q.value.length;
+    sendBtn.disabled = !q.value.trim() || len > MAX_LEN;
+    const c = $("counter");
+    c.textContent = len > MAX_LEN * 0.8 ? `${len} / ${MAX_LEN}` : "";
+    c.classList.toggle("over", len > MAX_LEN);
+  }
+  q.addEventListener("input", updateInput);
+  q.addEventListener("keydown", (e) => {
+    // PC에서는 Enter로 전송, Shift+Enter는 줄바꿈 (한글 조합 중엔 무시)
+    const touch = matchMedia("(pointer: coarse)").matches;
+    if (e.key === "Enter" && !e.shiftKey && !e.isComposing && !touch) {
+      e.preventDefault();
+      if (!sendBtn.disabled) $("form").requestSubmit();
+    }
+  });
+  $("linkBtn").addEventListener("click", () => {
+    const open = $("urlRow").classList.toggle("open");
+    $("linkBtn").classList.toggle("active", open);
+    if (open) $("url").focus();
+  });
+
+  function toast(msg) {
+    const t = $("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    setTimeout(() => t.classList.remove("show"), 2200);
+  }
+
+  $("form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const text = q.value.trim();
+    if (!text) return;
+    let url = $("url").value.trim();
+    if (url && !/^https?:\/\//i.test(url)) url = "https://" + url;
+
+    sendBtn.disabled = true;
+    let nick = "익명";
+    try {
+      if (DEMO) {
+        await new Promise((r) => setTimeout(r, 400));
+        nick = "미리보기 익명";
+      } else {
+        const res = await fetch(API_URL, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({ q: text, url, website: $("website").value }),
+        });
+        const data = await res.json();
+        if (!data.ok) {
+          toast(data.error === "busy" ? "지금 메시지가 많아요. 잠시 후 다시 보내주세요." : "전송에 실패했어요. 다시 시도해주세요.");
+          updateInput();
+          return;
+        }
+        nick = data.nick || nick;
+      }
+    } catch (err) {
+      toast("전송에 실패했어요. 다시 시도해주세요.");
+      updateInput();
+      return;
+    }
+
+    $("sent").insertAdjacentHTML("beforeend",
+      anonBubble(nick, text, url) + `<div class="pending">전송 완료 · 답변이 달리면 여기에 올라와요</div>`);
+    q.value = "";
+    $("url").value = "";
+    $("urlRow").classList.remove("open");
+    $("linkBtn").classList.remove("active");
+    updateInput();
+    window.scrollTo(0, document.body.scrollHeight);
+    toast("보냈어요!");
+  });
+
+  load();
+</script>
+</body>
+</html>
