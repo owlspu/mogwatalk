@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>노푸에게 말 걸기</title>
-<meta name="description" content="익명으로 노푸에게 무엇이든 물어보세요">
+<title>모과에게 말 걸기</title>
+<meta name="description" content="익명으로 모과에게 무엇이든 물어보세요">
 <style>
   :root {
     --bg: #262624;          /* 클로드 다크모드 배경 */
@@ -12,22 +12,21 @@
     --line: #3A3A37;
     --text: #F5F4EE;
     --muted: #9C9A92;
-    --me-bg: #000000;       /* 내 채팅 */
+    --me-bg: #000000;       /* 모과 말풍선 */
     --me-text: #FFFFFF;
-    --anon-bg: #C0E66D;     /* 익명 채팅 */
+    --anon-bg: #C0E66D;     /* 익명 말풍선 */
     --anon-text: #000000;
   }
   * { box-sizing: border-box; }
-  html, body { margin: 0; height: 100%; }
+  html, body { margin: 0; }
   body {
     background: var(--bg);
     color: var(--text);
     font-family: -apple-system, BlinkMacSystemFont, "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
     font-size: 15px;
     line-height: 1.55;
-    display: flex;
-    flex-direction: column;
   }
+  [hidden] { display: none !important; }
 
   /* 상단 바 */
   header {
@@ -49,12 +48,20 @@
   }
   .title { font-weight: 700; font-size: 16px; }
   .subtitle { color: var(--muted); font-size: 12.5px; }
+  .admin-bar {
+    max-width: 640px; margin: 0 auto; padding: 0 18px 10px;
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 12.5px; color: var(--anon-bg);
+  }
+  .admin-bar button {
+    background: transparent; border: 1px solid var(--line); color: var(--muted);
+    border-radius: 999px; padding: 3px 10px; font: inherit; cursor: pointer;
+  }
 
   /* 대화 영역 */
   main {
-    flex: 1;
     width: 100%; max-width: 640px; margin: 0 auto;
-    padding: 18px 14px 150px;
+    padding: 18px 14px 220px;
   }
   .notice {
     text-align: center; color: var(--muted); font-size: 13px;
@@ -68,83 +75,139 @@
   .date-divider::before, .date-divider::after {
     content: ""; flex: 1; height: 1px; background: var(--line);
   }
-  .row { display: flex; flex-direction: column; margin-bottom: 6px; }
-  .row.anon { align-items: flex-start; }
-  .row.me { align-items: flex-end; margin-bottom: 14px; }
+  .row { display: flex; flex-direction: column; margin-bottom: 12px; }
+  .row.anon { align-items: flex-end; }   /* 익명 = 오른쪽 */
+  .row.me { align-items: flex-start; }   /* 모과 = 왼쪽 */
   .name { font-size: 12px; color: var(--muted); margin: 0 6px 4px; }
+  .line { display: flex; align-items: flex-end; gap: 6px; max-width: 82%; }
+  .anon .line { flex-direction: row-reverse; }
+  .time { font-size: 11px; color: var(--muted); flex-shrink: 0; padding-bottom: 2px; }
   .bubble {
-    max-width: 82%;
     padding: 10px 14px;
     border-radius: 18px;
     white-space: pre-wrap;
     word-break: break-word;
+    min-width: 0;
   }
   .anon .bubble {
     background: var(--anon-bg); color: var(--anon-text);
-    border-top-left-radius: 6px;
+    border-top-right-radius: 6px;
   }
   .me .bubble {
     background: var(--me-bg); color: var(--me-text);
-    border-top-right-radius: 6px;
+    border-top-left-radius: 6px;
   }
+  .bubble.img-only { padding: 4px; }
   .bubble a { color: inherit; }
+  .att {
+    display: block; max-width: min(100%, 260px); max-height: 300px;
+    border-radius: 14px; margin-top: 8px; background: rgba(0,0,0,0.08);
+  }
+  .img-only .att { margin-top: 0; }
   .link-chip {
-    display: inline-block; margin-top: 8px;
+    display: block; width: fit-content; max-width: 100%; margin-top: 8px;
     padding: 4px 10px; border-radius: 999px;
-    background: rgba(0,0,0,0.12);
-    font-size: 12.5px; text-decoration: none;
-    max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    vertical-align: bottom;
+    background: rgba(0,0,0,0.12); font-size: 12.5px; text-decoration: none;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
-  .pending {
-    font-size: 12px; color: var(--muted); margin: 4px 6px 14px;
-  }
+  .tag { font-size: 11px; color: var(--muted); margin-left: 4px; }
+
+  /* 관리자 모드 */
+  .admin-mode .row.anon .bubble { cursor: pointer; }
+  .admin-mode .row.anon .bubble:hover { filter: brightness(0.93); }
+  .row.anon.selected .bubble { outline: 2px solid #fff; outline-offset: 2px; }
+  .row.is-hidden { opacity: 0.4; }
+
   .state { text-align: center; color: var(--muted); padding: 40px 0; font-size: 14px; }
 
   /* 입력창 */
   .composer-wrap {
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 5;
-    background: linear-gradient(to top, var(--bg) 75%, rgba(38,38,36,0));
-    padding: 18px 12px calc(12px + env(safe-area-inset-bottom));
+    background: linear-gradient(to top, var(--bg) 80%, rgba(38,38,36,0));
+    padding: 18px 12px calc(10px + env(safe-area-inset-bottom));
   }
   .composer {
     max-width: 640px; margin: 0 auto;
     background: var(--bg-raised);
     border: 1px solid var(--line);
     border-radius: 22px;
-    padding: 8px 8px 8px 14px;
+    padding: 8px 8px 6px 10px;
   }
-  .url-row { display: none; padding: 4px 0 8px; border-bottom: 1px solid var(--line); margin-bottom: 6px; }
-  .url-row.open { display: block; }
-  .url-row input {
-    width: 100%; background: transparent; border: 0; outline: 0;
-    color: var(--text); font: inherit; font-size: 14px;
+  .reply-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 2px 2px 8px 4px; margin-bottom: 6px;
+    border-bottom: 1px solid var(--line); font-size: 13px;
   }
-  .input-row { display: flex; align-items: flex-end; gap: 6px; }
+  .reply-row .reply-to {
+    flex: 1; min-width: 0; color: var(--muted);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .small-btn {
+    background: transparent; border: 1px solid var(--line); color: var(--muted);
+    border-radius: 999px; padding: 2px 10px; font: inherit; font-size: 12px; cursor: pointer;
+  }
+  .attach-row { padding: 4px 4px 8px; }
+  .thumb { position: relative; display: inline-block; }
+  .thumb img { height: 72px; max-width: 140px; object-fit: cover; border-radius: 10px; display: block; }
+  .thumb button {
+    position: absolute; top: -6px; right: -6px;
+    width: 22px; height: 22px; border-radius: 50%;
+    border: 0; background: #000; color: #fff; font-size: 11px; cursor: pointer;
+  }
+  .input-row { display: flex; align-items: flex-end; gap: 4px; }
   textarea {
     flex: 1; resize: none; border: 0; outline: 0;
     background: transparent; color: var(--text);
-    font: inherit; max-height: 140px; padding: 7px 0;
+    font: inherit; max-height: 140px; padding: 7px 4px;
   }
-  textarea::placeholder, .url-row input::placeholder { color: var(--muted); }
+  textarea::placeholder { color: var(--muted); }
   .icon-btn, .send-btn {
     width: 36px; height: 36px; border-radius: 50%;
     border: 0; cursor: pointer; flex-shrink: 0;
-    display: grid; place-items: center; font-size: 16px;
+    display: grid; place-items: center; font-size: 17px;
   }
   .icon-btn { background: transparent; color: var(--muted); }
-  .icon-btn.active { color: var(--anon-bg); }
   .send-btn { background: var(--anon-bg); color: var(--anon-text); font-weight: 700; }
+  .admin-mode .send-btn { background: #000; color: #fff; border: 1px solid #555; }
   .send-btn:disabled { opacity: 0.4; cursor: default; }
-  .counter { font-size: 11px; color: var(--muted); text-align: right; padding: 2px 6px 0 0; }
+  .meta-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 2px 4px 0 6px; font-size: 12px; color: var(--muted);
+  }
+  .secret-check { display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; }
+  .secret-check input { accent-color: var(--anon-bg); margin: 0; }
   .counter.over { color: #F28B82; }
   .hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
 
+  /* 로그인 창 */
+  .modal {
+    position: fixed; inset: 0; z-index: 20;
+    background: rgba(0,0,0,0.6);
+    display: grid; place-items: center; padding: 20px;
+  }
+  .modal-box {
+    width: 100%; max-width: 320px;
+    background: var(--bg-raised); border: 1px solid var(--line);
+    border-radius: 18px; padding: 20px;
+  }
+  .modal-box h2 { font-size: 16px; margin: 0 0 12px; }
+  .modal-box input {
+    width: 100%; padding: 10px 12px; border-radius: 10px;
+    border: 1px solid var(--line); background: var(--bg); color: var(--text); font: inherit;
+  }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+  .modal-actions button {
+    border-radius: 999px; padding: 6px 14px; font: inherit; font-size: 14px; cursor: pointer;
+    border: 1px solid var(--line); background: transparent; color: var(--text);
+  }
+  .modal-actions .primary { background: var(--anon-bg); color: #000; border-color: var(--anon-bg); }
+
   .toast {
-    position: fixed; left: 50%; bottom: 120px; transform: translateX(-50%);
+    position: fixed; left: 50%; bottom: 140px; transform: translateX(-50%);
     background: #000; color: #fff; font-size: 13px;
     padding: 8px 14px; border-radius: 999px;
-    opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 10;
+    opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 30;
+    white-space: nowrap;
   }
   .toast.show { opacity: 1; }
 </style>
@@ -153,32 +216,60 @@
 
 <header>
   <div class="header-inner">
-    <div class="avatar" id="avatar">노</div>
+    <div class="avatar" id="avatar">모</div>
     <div>
-      <div class="title" id="title">노푸에게 말 걸기</div>
-      <div class="subtitle">익명으로 보내져요 · 답변이 달린 질문만 여기에 올라와요</div>
+      <div class="title" id="title">모과에게 말 걸기</div>
+      <div class="subtitle" id="subtitle">익명으로 보내져요 · 🔒 비밀글은 모과만 볼 수 있어요</div>
     </div>
+  </div>
+  <div class="admin-bar" id="adminBar" hidden>
+    <span>관리자 모드 · 오른쪽 말풍선을 눌러 답장</span>
+    <button type="button" id="logoutBtn">나가기</button>
   </div>
 </header>
 
 <main id="chat">
-  <p class="notice">궁금한 거, 하고 싶은 말, 닮은 동물 사진 링크까지 편하게 보내줘요 🙂</p>
+  <p class="notice" id="notice">궁금한 거, 하고 싶은 말, 닮은 동물 사진까지 편하게 보내줘요 🙂</p>
   <div id="list"><div class="state">불러오는 중…</div></div>
-  <div id="sent"></div>
 </main>
 
 <div class="composer-wrap">
   <form class="composer" id="form" autocomplete="off">
-    <div class="url-row" id="urlRow">
-      <input type="text" inputmode="url" id="url" placeholder="링크 붙여넣기 (선택)" maxlength="500">
+    <div class="reply-row" id="replyRow" hidden>
+      <span class="reply-to" id="replyTo"></span>
+      <button type="button" class="small-btn" id="hideBtn">숨기기</button>
+      <button type="button" class="small-btn" id="cancelReply">✕</button>
+    </div>
+    <div class="attach-row" id="attachRow" hidden>
+      <div class="thumb">
+        <img id="thumbImg" alt="첨부 이미지 미리보기">
+        <button type="button" id="removeImg" aria-label="이미지 빼기">✕</button>
+      </div>
     </div>
     <input class="hp" type="text" id="website" tabindex="-1" aria-hidden="true">
+    <input type="file" id="file" accept="image/*" hidden>
     <div class="input-row">
-      <button type="button" class="icon-btn" id="linkBtn" title="링크 첨부">🔗</button>
-      <textarea id="q" rows="1" placeholder="익명으로 메시지 보내기" maxlength="1000"></textarea>
+      <button type="button" class="icon-btn" id="imgBtn" title="이미지 첨부">📷</button>
+      <textarea id="q" rows="1" placeholder="익명으로 메시지 보내기" maxlength="2000"></textarea>
       <button type="submit" class="send-btn" id="sendBtn" disabled aria-label="보내기">↑</button>
     </div>
-    <div class="counter" id="counter"></div>
+    <div class="meta-row">
+      <label class="secret-check" id="secretWrap">
+        <input type="checkbox" id="secret"> <span id="secretLabel">🔒 모과에게만 보이기</span>
+      </label>
+      <span class="counter" id="counter"></span>
+    </div>
+  </form>
+</div>
+
+<div class="modal" id="loginModal" hidden>
+  <form class="modal-box" id="loginForm">
+    <h2>관리자 로그인</h2>
+    <input type="password" id="pw" placeholder="비밀번호" autocomplete="current-password">
+    <div class="modal-actions">
+      <button type="button" id="loginCancel">취소</button>
+      <button type="submit" class="primary">들어가기</button>
+    </div>
   </form>
 </div>
 
@@ -187,9 +278,10 @@
 <script>
   /* ===== 설정 ===== */
   // 구글 Apps Script를 "웹 앱"으로 배포한 뒤 받은 주소를 여기에 붙여넣기
-  const API_URL = "PASTE_YOUR_APPS_SCRIPT_URL_HERE";
-  const OWNER_NAME = "노푸";
-  const MAX_LEN = 1000;
+  const API_URL = "https://script.google.com/macros/s/AKfycbydAm5fuiqwmXe28jPDtRDIsniH2TqsiLE-CdRXgfToMDKgB23xLWlUSHVnN4Rhrhr5ng/exec";
+  const OWNER_NAME = "모과";
+  const MAX_LEN = 1000;          // 익명 질문 최대 글자수
+  const REFRESH_SEC = 30;        // 새 메시지 자동 확인 간격(초)
   /* ================ */
 
   const $ = (id) => document.getElementById(id);
@@ -198,31 +290,106 @@
   document.title = OWNER_NAME + "에게 말 걸기";
   $("title").textContent = OWNER_NAME + "에게 말 걸기";
   $("avatar").textContent = OWNER_NAME.charAt(0);
+  $("subtitle").textContent = `익명으로 보내져요 · 🔒 비밀글은 ${OWNER_NAME}만 볼 수 있어요`;
+  $("secretLabel").textContent = `🔒 ${OWNER_NAME}에게만 보이기`;
 
+  /* 브라우저 저장소 (안 되는 환경이면 조용히 무시) */
+  const store = {
+    get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+    del(k) { try { localStorage.removeItem(k); } catch (e) {} },
+  };
+
+  // 이 브라우저 고유 번호: 내가 보낸 비밀글을 나만 다시 볼 수 있게
+  let vid = store.get("mogwa_vid");
+  if (!vid) {
+    vid = (window.crypto && crypto.randomUUID) ? crypto.randomUUID()
+      : Date.now().toString(36) + Math.random().toString(36).slice(2, 12);
+    store.set("mogwa_vid", vid);
+  }
+
+  let adminKey = store.get("mogwa_admin") || "";
+  let items = [];
+  let lastRendered = "";
+  let replyTarget = null;
+  let imgFile = null;
+  let busy = false;
+
+  /* ---------- 데모(주소 붙여넣기 전 미리보기) ---------- */
+  const demoImg = "data:image/svg+xml," + encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><rect width="400" height="300" fill="#8a7a63"/><circle cx="200" cy="160" r="80" fill="#5b4b3a"/><circle cx="170" cy="145" r="10" fill="#111"/><circle cx="230" cy="145" r="10" fill="#111"/><ellipse cx="200" cy="180" rx="18" ry="12" fill="#222"/></svg>`);
+  let demoItems = [
+    { id: "d1", date: "2026.11.18", time: "21:04", nick: "졸린 즤믽", q: "썰 속 주인공 진짜 닮은 동물 찾았어요", img: demoImg, url: "", a: "ㅋㅋㅋㅋ 표정까지 똑같다\n저장해둠", secret: false, hidden: false },
+    { id: "d2", date: "2026.11.20", time: "13:22", nick: "귀여운 칼믽", q: "썰 아이디어는 주로 어디서 얻어요?", img: "", url: "", a: "", secret: false, hidden: false },
+    { id: "d3", date: "2026.11.20", time: "14:10", nick: "수줍은 믽졍", q: "이건 모과만 봐줬으면 해서 비밀로 보내요", img: "", url: "", a: "", secret: true, hidden: false, mine: true },
+  ];
+
+  /* ---------- 서버 통신 ---------- */
+  async function post(body) {
+    const res = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(body),
+    });
+    return res.json();
+  }
+
+  async function fetchItems() {
+    if (DEMO) return demoItems.filter((it) => adminKey || (!it.hidden && (!it.secret || it.mine)));
+    if (adminKey) {
+      const d = await post({ action: "list", key: adminKey });
+      if (!d.ok) {
+        if (d.error === "auth") { logout(); toast("비밀번호가 맞지 않아요"); }
+        throw new Error(d.error);
+      }
+      return d.items || [];
+    }
+    const res = await fetch(API_URL + "?vid=" + encodeURIComponent(vid));
+    const d = await res.json();
+    return d.items || [];
+  }
+
+  /* ---------- 화면 그리기 ---------- */
   function esc(s) {
     return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   }
   function linkify(s) {
     return esc(s).replace(/https?:\/\/[^\s<]+/g, (u) => `<a href="${u}" target="_blank" rel="noopener noreferrer">${u}</a>`);
   }
-  function safeUrl(u) {
-    return /^https?:\/\//i.test(u || "") ? u : "";
-  }
-  function anonBubble(nick, q, url) {
-    const link = safeUrl(url);
-    const chip = link
-      ? `\n<a class="link-chip" href="${esc(link)}" target="_blank" rel="noopener noreferrer">🔗 ${esc(link.replace(/^https?:\/\//, ""))}</a>`
-      : "";
-    return `<div class="row anon"><div class="name">${esc(nick)}</div><div class="bubble">${esc(q)}${chip}</div></div>`;
-  }
-  function meBubble(a) {
-    return `<div class="row me"><div class="name">${esc(OWNER_NAME)}</div><div class="bubble">${linkify(a)}</div></div>`;
+  function bigImg(src) {
+    return /drive\.google\.com\/thumbnail/.test(src) ? src.replace(/sz=w\d+/, "sz=w2000") : src;
   }
 
-  function render(items) {
+  function anonRow(it) {
+    let inner = esc(it.q);
+    if (it.img) {
+      inner += `<a href="${esc(bigImg(it.img))}" target="_blank" rel="noopener noreferrer"><img class="att" src="${esc(it.img)}" alt="첨부 이미지" loading="lazy"></a>`;
+    } else if (/^https?:\/\//i.test(it.url || "")) {
+      inner += `<a class="link-chip" href="${esc(it.url)}" target="_blank" rel="noopener noreferrer">🔗 ${esc(it.url.replace(/^https?:\/\//, ""))}</a>`;
+    }
+    const tags = (it.secret ? `<span class="tag">🔒 비밀글</span>` : "") + (it.hidden ? `<span class="tag">· 숨김</span>` : "");
+    const cls = ["row", "anon",
+      it.hidden ? "is-hidden" : "",
+      replyTarget && replyTarget.id === it.id ? "selected" : ""].join(" ");
+    return `<div class="${cls}" data-id="${esc(it.id)}">
+      <div class="name">${esc(it.nick)}${tags}</div>
+      <div class="line"><div class="bubble${!it.q && it.img ? " img-only" : ""}">${inner}</div><span class="time">${esc(it.time || "")}</span></div>
+    </div>`;
+  }
+  function meRow(it) {
+    return `<div class="row me">
+      <div class="name">${esc(OWNER_NAME)}</div>
+      <div class="line"><div class="bubble">${linkify(it.a)}</div></div>
+    </div>`;
+  }
+
+  function render(force) {
+    const key = JSON.stringify(items) + "|" + (replyTarget ? replyTarget.id : "");
+    if (!force && key === lastRendered) return false;
+    lastRendered = key;
     if (!items.length) {
-      $("list").innerHTML = `<div class="state">아직 공개된 답변이 없어요. 첫 질문을 보내보세요!</div>`;
-      return;
+      $("list").innerHTML = `<div class="state">아직 메시지가 없어요. 첫 메시지를 보내보세요!</div>`;
+      return true;
     }
     let html = "", lastDate = "";
     items.forEach((it) => {
@@ -230,107 +397,273 @@
         html += `<div class="date-divider">${esc(it.date)}</div>`;
         lastDate = it.date;
       }
-      html += anonBubble(it.nick, it.q, it.url) + meBubble(it.a);
+      html += anonRow(it);
+      if (it.a) html += meRow(it);
     });
     $("list").innerHTML = html;
+    return true;
+  }
+
+  function nearBottom() {
+    return window.innerHeight + window.scrollY >= document.body.scrollHeight - 160;
+  }
+  function scrollBottom() {
     window.scrollTo(0, document.body.scrollHeight);
   }
 
-  async function load() {
-    if (DEMO) {
-      render([
-        { date: "2026.11.18", nick: "졸린 수달", q: "썰 속 주인공 진짜 닮은 동물 찾았어요", url: "https://example.com/otter.jpg", a: "ㅋㅋㅋㅋ 표정까지 똑같다\n저장해둠" },
-        { date: "2026.11.20", nick: "조용한 고양이", q: "썰 아이디어는 주로 어디서 얻어요?", url: "", a: "샤워할 때랑 잠들기 직전이 제일 많이 떠올라.\n그래서 메모장이 항상 엉망이야 ㅎㅎ" },
-      ]);
-      return;
-    }
+  async function refresh(goBottom) {
+    if (busy) return;
+    const wasNear = nearBottom();
     try {
-      const res = await fetch(API_URL);
-      const data = await res.json();
-      render(data.items || []);
+      items = await fetchItems();
+      const changed = render(false);
+      if (goBottom || (changed && wasNear)) scrollBottom();
     } catch (e) {
-      $("list").innerHTML = `<div class="state">답변을 불러오지 못했어요. 잠시 후 새로고침 해주세요.</div>`;
+      if (!items.length) $("list").innerHTML = `<div class="state">메시지를 불러오지 못했어요. 잠시 후 새로고침 해주세요.</div>`;
     }
   }
 
-  /* 입력창 동작 */
+  /* ---------- 관리자 모드 ---------- */
+  function applyMode() {
+    const admin = !!adminKey;
+    document.body.classList.toggle("admin-mode", admin);
+    $("adminBar").hidden = !admin;
+    $("imgBtn").hidden = admin;
+    $("secretWrap").style.visibility = admin ? "hidden" : "visible";
+    $("q").placeholder = admin ? "답장할 말풍선을 눌러줘" : "익명으로 메시지 보내기";
+    $("notice").hidden = admin;
+    if (!admin) cancelReply();
+    clearImage();
+    updateInput();
+  }
+
+  function logout() {
+    adminKey = "";
+    store.del("mogwa_admin");
+    applyMode();
+  }
+
+  async function login(pw) {
+    adminKey = pw;
+    try {
+      if (!DEMO) {
+        const d = await post({ action: "list", key: pw });
+        if (!d.ok) throw new Error(d.error);
+      }
+      store.set("mogwa_admin", pw);
+      $("loginModal").hidden = true;
+      applyMode();
+      toast("관리자 모드로 들어왔어요");
+      refresh(true);
+    } catch (e) {
+      adminKey = "";
+      toast("비밀번호가 맞지 않아요");
+    }
+  }
+
+  function selectReply(id) {
+    const it = items.find((x) => x.id === id);
+    if (!it) return;
+    replyTarget = it;
+    $("replyRow").hidden = false;
+    $("replyTo").textContent = "↪ " + it.nick + ": " + (it.q || "(이미지)");
+    $("hideBtn").textContent = it.hidden ? "숨김 풀기" : "숨기기";
+    $("q").value = it.a || "";
+    $("q").placeholder = "답장 쓰기";
+    render(true);
+    updateInput();
+    $("q").focus();
+  }
+
+  function cancelReply() {
+    replyTarget = null;
+    $("replyRow").hidden = true;
+    $("q").value = "";
+    $("q").placeholder = adminKey ? "답장할 말풍선을 눌러줘" : "익명으로 메시지 보내기";
+    render(true);
+    updateInput();
+  }
+
+  $("list").addEventListener("click", (e) => {
+    if (!adminKey) return;
+    if (e.target.closest("a")) return; // 사진/링크 누르면 그냥 열기
+    const row = e.target.closest(".row.anon");
+    if (row) selectReply(row.dataset.id);
+  });
+  $("cancelReply").addEventListener("click", cancelReply);
+  $("logoutBtn").addEventListener("click", () => { logout(); refresh(true); });
+
+  $("hideBtn").addEventListener("click", async () => {
+    if (!replyTarget) return;
+    const next = !replyTarget.hidden;
+    try {
+      if (DEMO) {
+        demoItems.find((x) => x.id === replyTarget.id).hidden = next;
+      } else {
+        const d = await post({ action: "hide", key: adminKey, id: replyTarget.id, hidden: next });
+        if (!d.ok) throw new Error(d.error);
+      }
+      toast(next ? "숨겼어요" : "다시 보이게 했어요");
+      cancelReply();
+      refresh(false);
+    } catch (e) { toast("처리하지 못했어요"); }
+  });
+
+  $("loginForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const pw = $("pw").value;
+    if (pw) login(pw);
+  });
+  $("loginCancel").addEventListener("click", () => { $("loginModal").hidden = true; });
+
+  /* ---------- 이미지 첨부 ---------- */
+  $("imgBtn").addEventListener("click", () => $("file").click());
+  $("file").addEventListener("change", () => {
+    const f = $("file").files[0];
+    $("file").value = "";
+    if (!f) return;
+    if (!/^image\//.test(f.type)) { toast("이미지 파일만 보낼 수 있어요"); return; }
+    if (f.size > 20 * 1024 * 1024) { toast("이미지가 너무 커요 (20MB까지)"); return; }
+    imgFile = f;
+    $("thumbImg").src = URL.createObjectURL(f);
+    $("attachRow").hidden = false;
+    updateInput();
+  });
+  $("removeImg").addEventListener("click", clearImage);
+  function clearImage() {
+    imgFile = null;
+    $("attachRow").hidden = true;
+    $("thumbImg").removeAttribute("src");
+    updateInput();
+  }
+
+  function readAsDataURL(blob) {
+    return new Promise((ok, fail) => {
+      const r = new FileReader();
+      r.onload = () => ok(r.result);
+      r.onerror = fail;
+      r.readAsDataURL(blob);
+    });
+  }
+  function loadImage(file) {
+    return new Promise((ok, fail) => {
+      const img = new Image();
+      img.onload = () => ok(img);
+      img.onerror = fail;
+      img.src = URL.createObjectURL(file);
+    });
+  }
+  // 용량 줄이기: 긴 쪽 1280px, JPEG. 움짤(GIF)은 3MB 이하면 그대로
+  async function prepareImage(file) {
+    if (file.type === "image/gif" && file.size <= 3 * 1024 * 1024) {
+      return { b64: (await readAsDataURL(file)).split(",")[1], mime: "image/gif" };
+    }
+    const img = await loadImage(file);
+    const scale = Math.min(1, 1280 / Math.max(img.naturalWidth, img.naturalHeight));
+    const c = document.createElement("canvas");
+    c.width = Math.round(img.naturalWidth * scale);
+    c.height = Math.round(img.naturalHeight * scale);
+    const ctx = c.getContext("2d");
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, c.width, c.height);
+    ctx.drawImage(img, 0, 0, c.width, c.height);
+    return { b64: c.toDataURL("image/jpeg", 0.85).split(",")[1], mime: "image/jpeg" };
+  }
+
+  /* ---------- 입력창 ---------- */
   const q = $("q"), sendBtn = $("sendBtn");
   function updateInput() {
     q.style.height = "auto";
     q.style.height = Math.min(q.scrollHeight, 140) + "px";
     const len = q.value.length;
-    sendBtn.disabled = !q.value.trim() || len > MAX_LEN;
+    const limit = adminKey ? 2000 : MAX_LEN;
+    const hasText = !!q.value.trim();
+    sendBtn.disabled = busy || len > limit ||
+      (adminKey ? !(replyTarget && hasText) : !(hasText || imgFile));
     const c = $("counter");
-    c.textContent = len > MAX_LEN * 0.8 ? `${len} / ${MAX_LEN}` : "";
-    c.classList.toggle("over", len > MAX_LEN);
+    c.textContent = len > limit * 0.8 ? `${len} / ${limit}` : "";
+    c.classList.toggle("over", len > limit);
   }
   q.addEventListener("input", updateInput);
   q.addEventListener("keydown", (e) => {
-    // PC에서는 Enter로 전송, Shift+Enter는 줄바꿈 (한글 조합 중엔 무시)
+    // PC: Enter 전송, Shift+Enter 줄바꿈 (한글 조합 중엔 무시) / 모바일: Enter 줄바꿈
     const touch = matchMedia("(pointer: coarse)").matches;
     if (e.key === "Enter" && !e.shiftKey && !e.isComposing && !touch) {
       e.preventDefault();
       if (!sendBtn.disabled) $("form").requestSubmit();
     }
   });
-  $("linkBtn").addEventListener("click", () => {
-    const open = $("urlRow").classList.toggle("open");
-    $("linkBtn").classList.toggle("active", open);
-    if (open) $("url").focus();
-  });
 
-  function toast(msg) {
+  function toast(msg, ms) {
     const t = $("toast");
     t.textContent = msg;
     t.classList.add("show");
-    setTimeout(() => t.classList.remove("show"), 2200);
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => t.classList.remove("show"), ms || 2200);
   }
 
   $("form").addEventListener("submit", async (e) => {
     e.preventDefault();
+    if (sendBtn.disabled) return;
     const text = q.value.trim();
-    if (!text) return;
-    let url = $("url").value.trim();
-    if (url && !/^https?:\/\//i.test(url)) url = "https://" + url;
-
-    sendBtn.disabled = true;
-    let nick = "익명";
-    try {
-      if (DEMO) {
-        await new Promise((r) => setTimeout(r, 400));
-        nick = "미리보기 익명";
-      } else {
-        const res = await fetch(API_URL, {
-          method: "POST",
-          headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify({ q: text, url, website: $("website").value }),
-        });
-        const data = await res.json();
-        if (!data.ok) {
-          toast(data.error === "busy" ? "지금 메시지가 많아요. 잠시 후 다시 보내주세요." : "전송에 실패했어요. 다시 시도해주세요.");
-          updateInput();
-          return;
-        }
-        nick = data.nick || nick;
-      }
-    } catch (err) {
-      toast("전송에 실패했어요. 다시 시도해주세요.");
-      updateInput();
-      return;
-    }
-
-    $("sent").insertAdjacentHTML("beforeend",
-      anonBubble(nick, text, url) + `<div class="pending">전송 완료 · 답변이 달리면 여기에 올라와요</div>`);
-    q.value = "";
-    $("url").value = "";
-    $("urlRow").classList.remove("open");
-    $("linkBtn").classList.remove("active");
+    busy = true;
     updateInput();
-    window.scrollTo(0, document.body.scrollHeight);
-    toast("보냈어요!");
+    try {
+      if (adminKey) {
+        /* 모과 답장 */
+        if (DEMO) {
+          demoItems.find((x) => x.id === replyTarget.id).a = text;
+        } else {
+          const d = await post({ action: "reply", key: adminKey, id: replyTarget.id, answer: text });
+          if (!d.ok) throw new Error(d.error);
+        }
+        busy = false;
+        cancelReply();
+        toast("답장했어요");
+      } else {
+        /* 익명 메시지 */
+        const body = { q: text, secret: $("secret").checked, vid, website: $("website").value };
+        if (imgFile) {
+          toast("보내는 중…", 10000);
+          Object.assign(body, await (async () => { const p = await prepareImage(imgFile); return { image: p.b64, mime: p.mime }; })());
+        }
+        if (DEMO) {
+          demoItems.push({
+            id: "d" + Date.now(), date: "2026.11.20", time: "지금", nick: "말랑한 밍둉", q: text,
+            img: imgFile ? URL.createObjectURL(imgFile) : "", url: "", a: "",
+            secret: body.secret, hidden: false, mine: true,
+          });
+        } else {
+          const d = await post(body);
+          if (!d.ok) {
+            const msg = { busy: "지금 메시지가 많아요. 잠시 후 다시 보내주세요.", bad_image: "이 이미지는 보낼 수 없어요", too_long: "글이 너무 길어요" }[d.error];
+            throw new Error(msg || "");
+          }
+        }
+        busy = false;
+        q.value = "";
+        $("secret").checked = false;
+        clearImage();
+        toast(body.secret ? `보냈어요! ${OWNER_NAME}만 볼 수 있어요` : "보냈어요!");
+      }
+      busy = false;
+      await refresh(true);
+    } catch (err) {
+      busy = false;
+      toast(err.message && !/^[a-z_]+$/.test(err.message) ? err.message : "전송에 실패했어요. 다시 시도해주세요.");
+    }
+    updateInput();
   });
 
-  load();
+  /* ---------- 시작 ---------- */
+  if (/[?#&]admin\b/.test(location.search + location.hash) && !adminKey) {
+    $("loginModal").hidden = false;
+    setTimeout(() => $("pw").focus(), 50);
+  }
+  applyMode();
+  refresh(true);
+  setInterval(() => { if (!document.hidden) refresh(false); }, REFRESH_SEC * 1000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) refresh(false); });
 </script>
 </body>
 </html>
